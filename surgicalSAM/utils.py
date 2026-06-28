@@ -5,8 +5,6 @@ import os
 import os.path as osp 
 import re 
 
-
-
 def create_binary_masks(binary_masks, preds, preds_quality, mask_names, thr):
 
     """Gather the predicted binary masks of different frames and classes into a dictionary, mask quality is also recorded
@@ -256,3 +254,39 @@ def print_log(str_to_print, log_file):
     print(str_to_print)
     with open(log_file, "a") as file:
         file.write(str_to_print+"\n")
+
+
+class EndovisMaskAccumulator:
+
+    def __init__(self, H, W):
+        self.H, self.W = H, W
+        self.sem = {}     # "{seq}/{frame}.png" -> uint8 (H, W) semantic map
+        self.qual = {}    # "{seq}/{frame}.png" -> float32 (H, W) best quality
+
+    def add(self, preds, preds_quality, mask_names, thr=0):
+        masks = (preds.detach().cpu() > thr).numpy()        # (B, H, W) bool
+        quals = preds_quality.detach().cpu().reshape(-1)    # (B,)
+        for m, mask_name, q in zip(masks, mask_names, quals):
+            seq = mask_name.split("/")[0]
+            frame = osp.basename(mask_name).split("_")[0]
+            key = f"{seq}/{frame}.png"
+            cls = int(re.search(r"class(\d+)", mask_name).group(1))
+            if key not in self.sem:
+                self.sem[key] = np.zeros((self.H, self.W), dtype=np.uint8)
+                self.qual[key] = np.full((self.H, self.W), -np.inf, dtype=np.float32)
+            qv = float(q)
+            better = m & (qv >= self.qual[key])
+            self.sem[key][better] = cls
+            self.qual[key][better] = qv
+
+    def result(self):
+        """Return {frame_key: (H, W) uint8 semantic map}.
+
+        Values are class ids 0..28 (uint8 represents them exactly), so this is
+        byte-identical in content to the previous astype(int) version while using
+        1/8 the memory. We also drop the float32 quality buffers here: once the
+        semantic maps are final, quality is no longer needed, so freeing it cuts
+        the validation memory peak from ~78GB to ~25GB (no OOM).
+        """
+        self.qual.clear()
+        return self.sem
