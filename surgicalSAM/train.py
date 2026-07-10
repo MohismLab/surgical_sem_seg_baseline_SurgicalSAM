@@ -15,7 +15,7 @@ CUDA_VISIBLE_DEVICES=1 nohup /home/lq/Projects_qin/run_SSAM/bin/python train.py 
       --fold 0 \
       > /mnt/hdd2/task2/surgicalsam/work_dirs/fold_0/train.out 2>&1 &
 
-参数是: --epochs 100 --patience 5 --batch_size 2 --lr 0.001 --num_tokens 2
+参数是: --epochs 100 --patience 10 --batch_size 32 --lr 0.001 --num_tokens 2
 
 推理命令 (以fold0为例):
 CUDA_VISIBLE_DEVICES=1 /home/lq/Projects_qin/run_SSAM/bin/python inference.py --fold 0
@@ -152,8 +152,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fold", type=int, required=True, choices=[0, 1, 2, 3, 4])
     ap.add_argument("--epochs", type=int, default=100)
-    ap.add_argument("--patience", type=int, default=5)
-    ap.add_argument("--batch_size", type=int, default=2)
+    ap.add_argument("--patience", type=int, default=10)
+    ap.add_argument("--batch_size", type=int, default=32)
     ap.add_argument("--num_workers", type=int, default=16)
     ap.add_argument("--lr", type=float, default=0.001)
     ap.add_argument("--num_tokens", type=int, default=2)

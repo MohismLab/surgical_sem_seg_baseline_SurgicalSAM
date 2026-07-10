@@ -125,11 +125,14 @@ def postprocess_masks(masks, input_size, original_size):
     
     # masks = masks[..., : input_size[0], : input_size[1]]
     # masks = F.interpolate(masks, original_size, mode="bilinear", align_corners=False)
+    # 这里放大的是"单类连续 logit"(尚未 sigmoid/二值化), 所以 bilinear 是安全且
+    # 正确的: 平滑上采样后再阈值化, 边界更细腻; nearest 会产生 64->1024 的马赛克块。
+    # (只有对"多类整数标签图"才必须 nearest, 那不是这里的情形)
     masks = F.interpolate(
         masks,
-        size=(1024, 1024),  # 注意：PyTorch 尺寸格式为 (height, width)
-        mode="nearest",      # 必须使用 nearest 保持类别标签
-        align_corners=None   # 对于 nearest 模式应设置为 None
+        size=(1024, 1024),   # 注意：PyTorch 尺寸格式为 (height, width)
+        mode="bilinear",
+        align_corners=False
     )
 
     # scale = 1024 / max(original_size)
@@ -147,8 +150,8 @@ def postprocess_masks(masks, input_size, original_size):
     masks = F.interpolate(
         masks,
         size=original_size,  # 注意：PyTorch 尺寸格式为 (height, width)
-        mode="nearest",      # 必须使用 nearest 保持类别标签
-        align_corners=None   # 对于 nearest 模式应设置为 None
+        mode="bilinear",     # 连续 logit 平滑上采样, 边界更细腻(见上方说明)
+        align_corners=False
     )
 
     return masks
