@@ -3,7 +3,7 @@ SurgicalSAM Si5 inference — produces native (1004,1920) integer semantic PNGs 
 Usage: python inference_si5.py --fold 0 [--num_tokens 2] [--num_workers 4]
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "surgicalSAM"))
 import os.path as osp
 import re
 import argparse
@@ -19,7 +19,7 @@ from model import Learnable_Prototypes, Prototype_Prompt_Encoder
 from model_forward import model_forward_function
 from utils import EndovisMaskAccumulator, eval_endovis
 
-SAM_CKP = "../ckp/sam/sam_vit_h_4b8939.pth"
+SAM_CKP = "/mnt/hdd2/task2/sam/sam_vit_h_4b8939.pth"
 SURG = "/mnt/hdd2/task2/surgicalsam"
 DATA_ROOT = f"{SURG}/dataset"
 FEAT_DIR_SI5 = f"{DATA_ROOT}/feat_dir_Si5"         # pre-extracted SAM features for Si5
@@ -51,8 +51,12 @@ class SurgicalSi5Dataset(Dataset):
         # ── binary mask (read but discarded during inference; needed for Dataset contract) ──
         mask = cv2.imread(bm_path, cv2.IMREAD_GRAYSCALE)
 
-        # mask name as "pid/pid_C1-XXXXX_classN.png" → endo_key_to_nnkey → nnUNet key
-        pid_mask = f"{pid}/{osp.basename(bm_path)}"
+        # mask name as "pid/C1-XXXXX_classN.png" → endo_key_to_nnkey → nnUNet key
+        # (strip patient prefix from Si5 binary annotation basename: "1_C1-00000_class15.png" -> "C1-00000_class15.png")
+        bm_basename = osp.basename(bm_path)
+        if "_" in bm_basename:
+            bm_basename = bm_basename.split("_", 1)[1]  # remove "pid_" prefix
+        pid_mask = f"{pid}/{bm_basename}"
 
         # class embedding (zeros fallback)
         ce_path = osp.join(DATA_ROOT, "class_embeddings",
@@ -137,12 +141,6 @@ def main():
         Image.fromarray(pred.astype(np.uint8)).save(osp.join(predict_dir, f"{nnkey}.png"))
     print(f"[fold{args.fold}] saved {len(endo)} native semantic PNGs -> {predict_dir}")
 
-    # quick per-class stats (informational, not used for unified eval)
-    gt = {}
-    for _, row in df.iterrows():
-        key = f"{osp.basename(osp.dirname(row['png_filename']))}/{osp.basename(row['png_filename'])}"
-        gt[key] = None   # placeholder — just need keys
-    res = eval_endovis(endo, gt)
     print(f"[fold{args.fold}] done. pred frames={len(endo)}")
 
 
