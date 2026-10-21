@@ -23,9 +23,11 @@ def show_mask(mask_image, cls_id):
 def model_forward_function(prototype_prompt_encoder, 
                             sam_prompt_encoder, 
                             sam_decoder, 
-                            sam_feats, 
-                            prototypes, 
-                            cls_ids): 
+                            sam_feats,
+                            prototypes,
+                            cls_ids,
+                            input_size=(535, 1024),      # Si5: 1004x1920 -> 535x1024 (padded to 1024)
+                            original_size=(1004, 1920)):  # SAR: pass (576,1024)/(1080,1920)
         
     sam_feats = rearrange(sam_feats, 'b h w c -> b (h w) c')
 
@@ -71,8 +73,8 @@ def model_forward_function(prototype_prompt_encoder,
             # original_size (tuple(int, int)): The original size of the image
             # before resizing for input to the model, in (H, W) format.
             # input_size是输入模型的预处理的图像尺寸，original_size是图像在输入模型之前的原始尺寸。
-            input_size=(535, 1024), # QL modify input_size=(819, 1024),
-            original_size=(1004, 1920) # QL modify original_size=(1024, 1280),
+            input_size=input_size,      # QL modify input_size=(819, 1024),
+            original_size=original_size  # QL modify original_size=(1024, 1280),
         )
         # show_mask(pred_per_image, cls_ids)
         pred.append(pred_per_image)
